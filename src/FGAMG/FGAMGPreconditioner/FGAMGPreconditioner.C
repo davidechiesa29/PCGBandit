@@ -69,6 +69,7 @@ void Foam::FGAMGPreconditioner::precondition
 ) const
 {
 
+    wA = Zero;
     solveScalarField AwA(wA.size());
     solveScalarField finestCorrection(wA.size());
     solveScalarField finestResidual(rA_ss);
