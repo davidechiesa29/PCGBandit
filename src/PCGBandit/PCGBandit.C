@@ -126,44 +126,36 @@ Foam::PCGBandit::PCGBandit
     minLogDroptol_ = solverControls.getOrDefault<scalar>("minLogDroptol", -4.0);
     numDroptols_ = solverControls.getOrDefault<label>("numDroptols", 0);
 
-    static bool GAMGOptionsInitialized = false;
+    
+    void addLabelListOrDefault = [&](const word& fvName, const word& keyName, const List<label>& defList)
     {
-        return param + "Options";
+    List<label> vals = solverControls.getOrDefault<List<label>>(fvName, defList);
+        if (vals.empty())
+            vals = defList;
+        GAMGOptions.set(keyName, vals);
     };
 
-    if (!GAMGOptionsInitialized)
+    addLabelListOrDefault("nPreSweepsOptions", "nPreSweeps", {0, 2});
+    addLabelListOrDefault("nPostSweepsOptions", "nPostSweeps", {1, 2});
+    addLabelListOrDefault("nFinestSweepsOptions", "nFinestSweeps", {2});
+    addLabelListOrDefault("nCellsInCoarsestLevelOptions", "nCellsInCoarsestLevel", {10, 100, 1000});
+    addLabelListOrDefault("mergeLevelsOptions", "mergeLevels", {1, 2});
+    addLabelListOrDefault("nVcyclesOptions", "nVcycles", {1, 2});
+
+    // Word Parameters (string options)
+
+    void addWordListOrDefault = [&](const word& fvName, const word& keyName, const List<word>& defList)
     {
-        void addLabelListOrDefault = [&](const word& fvName, const word& keyName, const List<label>& defList)
-        {
-            List<label> vals = solverControls.getOrDefault<List<label>>(fvName, defList);
-            if (vals.empty())
-                vals = defList;
-            GAMGOptions.set(keyName, vals);
-        };
+        List<word> vals = solverControls.getOrDefault<List<word>>(fvName, defList);
+        if (vals.empty())
+            vals = defList;
+        GAMGOptions.set(keyName, vals);
+    };
 
-        addLabelListOrDefault("nPreSweepsOptions", "nPreSweeps", {0, 2});
-        addLabelListOrDefault("nPostSweepsOptions", "nPostSweeps", {1, 2});
-        addLabelListOrDefault("nFinestSweepsOptions", "nFinestSweeps", {2});
-        addLabelListOrDefault("nCellsInCoarsestLevelOptions", "nCellsInCoarsestLevel", {10, 100, 1000});
-        addLabelListOrDefault("mergeLevelsOptions", "mergeLevels", {1, 2});
-        addLabelListOrDefault("nVcyclesOptions", "nVcycles", {1, 2});
+    addWordListOrDefault("smootherOptions", "smoother", {"GaussSeidel", "DIC", "DICGaussSeidel", "symGaussSeidel"});
+    addWordListOrDefault("agglomeratorOptions", "agglomerator", {"faceAreaPair", "algebraicPair"});
+    addWordListOrDefault("directSolveCoarsestOptions", "directSolveCoarsest", {"no", "yes"});
 
-        // Word Parameters (string options)
-
-        void addWordListOrDefault = [&](const word& fvName, const word& keyName, const List<word>& defList)
-        {
-            List<word> vals = solverControls.getOrDefault<List<word>>(fvName, defList);
-            if (vals.empty())
-                vals = defList;
-            GAMGOptions.set(keyName, vals);
-        };
-
-        addWordListOrDefault("smootherOptions", "smoother", {"GaussSeidel", "DIC", "DICGaussSeidel", "symGaussSeidel"});
-        addWordListOrDefault("agglomeratorOptions", "agglomerator", {"faceAreaPair", "algebraicPair"});
-        addWordListOrDefault("directSolveCoarsestOptions", "directSolveCoarsest", {"no", "yes"});
-
-        GAMGOptionsInitialized = true;
-    }
 
     {
 
