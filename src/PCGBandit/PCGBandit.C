@@ -128,6 +128,7 @@ Foam::PCGBandit::PCGBandit
         if (GAMG_or_FGAMG == "GAMG") {
             FatalErrorInFunction << "coarsestSmootherTune requires FGAMG" << exit(FatalError);
         }
+        label inc = max(ICTCSuffixes.size() / solverControls.getOrDefault<label>("numSmootherDroptols", ICTCSuffixes.size()), 1);
 
         bool cacheAgglomeration = true;
         label dGAMG = 0;
@@ -151,10 +152,10 @@ Foam::PCGBandit::PCGBandit
                                 if (GAMG_or_FGAMG == "GAMG") {
                                     WarningInFunction<< "Set " << config << " smoother but FGAMG unavailable; using GAMG (may be slow)" << endl;
                                 }
-                                for (label finestIdx = minDroptolIdx; finestIdx <= maxDroptolIdx; ++finestIdx) {
+                                for (label finestIdx = minDroptolIdx; finestIdx <= maxDroptolIdx; finestIdx += inc) {
                                     word finest = config + "_" + ICTCSuffixes[finestIdx];
                                     if (coarsestSmootherTune) { // pair up smoother and coarsestSmoother
-                                        for (label coarsestIdx = minDroptolIdx; coarsestIdx <= maxDroptolIdx; ++coarsestIdx) {
+                                        for (label coarsestIdx = minDroptolIdx; coarsestIdx <= maxDroptolIdx; coarsestIdx += inc) {
                                             opts.append(finest + "; coarsestSmoother " + config + "_" + ICTCSuffixes[coarsestIdx]);
                                         }
                                     } else {
@@ -258,7 +259,9 @@ void Foam::PCGBandit::queryLearner
 
         if (Pstream::myProcNo() == 0) {
             label d = preconditionerDicts.size();
-            if (randomUniform_) {
+            if (d == 1) {
+                i = 0;
+            } else if (randomUniform_) {
                 i = floor(scalar(d) * rndGen.sample01<scalar>());
             } else if (banditAlgorithm_ == "ThompsonSampling") {
                 #include "ThompsonSampling.H"

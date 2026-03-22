@@ -303,7 +303,7 @@ SOLVER=$DEFAULT
 runSimulation "$SOLVER" ../DIC
 
 # GAMG with DICGaussSeidel smoother
-SOLVER="$DEFAULT smootherTune DICGaussSeidel; DICTune no;"
+SOLVER="$DEFAULT smootherTune (DICGaussSeidel); DICTune no;"
 runSimulation "$SOLVER" ../GAMG
 
 ################################################################################

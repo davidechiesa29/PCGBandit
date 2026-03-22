@@ -4,9 +4,9 @@ Package for tuning PCG preconditioners in OpenFOAM simulations on-the-fly (PCGBa
 In addition, this repository implements the following:
 
 * An implementation of a thresholded incomplete Cholesky preconditioner (`ICTC`) with a customizable drop tolerance parameter (`droptol`).
-* An implementation of GAMG (`FGAMG`) that precomputes `DIC` / `ICTC` smoothing factors before solving the system rather than at each iteration; it also allows the `ICTC` drop tolerance to vary across multigrid levels.
+* An implementation of GAMG (`FGAMG`) that precomputes ICTC (and DIC) smoothing factors before solving the system rather than at each iteration; it also allows the ICTC drop tolerance to vary across multigrid levels.
 
-## Usage
+## Setup
 
 ### Docker setup
 
@@ -22,70 +22,81 @@ cd src/ICTC && wmake libso && cd ../..
 cd src/FGAMG && wmake libso && cd ../..
 ```
 
-### Configuring your case
+## Configuring your case
 
-In your OpenFOAM case directory's `system` subfolder:
+Add the following line to your OpenFOAM case directory's `system` subfolder:
+```
+libs ( libICTC.so libFGAMG.so libPCGBandit.so );
+```
 
-1. Add the following line to `controlDict`:
-    ```
-    libs ( libICTC.so libFGAMG.so libPCGBandit.so );
-    ```
+Then, for any PCG solver to be tuned, replace its `solver` and `preconditioner` specifications in `fvSolution` with PCGBandit settings.
+A minimal configuration is:
+```
+solver          PCGBandit;
+preconditioner  separate;
+```
+This tunes over the `DIC` preconditioner only (equivalent to standard PCG with DIC). The `separate` setting for `preconditioner` specifies tuning each linear system in the simulation separately; the alternative option is `joint`, with custom groupings possible using other names.
+Set `randomSeed` in `controlDict` (not `fvSolution`) to control the random seed.
 
-2. For any PCG solver to be tuned, replace its `solver` and `preconditioner` specifications in `fvSolution` with PCGBandit settings.
-   A minimal configuration is:
-    ```
-    solver          PCGBandit;
-    preconditioner  separate;
-    ```
-    This tunes over the `DIC` preconditioner only (equivalent to standard `PCG` with `DIC`).
+### Tuning the ICTC preconditioner drop tolerance
 
-    To tune over `GAMG` configurations, add one or more `\*Tune` keywords.
-    Each `\*Tune` keyword accepts either `yes` (use built-in defaults), `no` (default), or an explicit list of values:
-    ```
-    solver          PCGBandit;
-    preconditioner  separate;
-    smootherTune    yes;            // default: (GaussSeidel DIC DICGaussSeidel symGaussSeidel)
-    nCellsInCoarsestLevelTune yes;  // default: (10 100 1000)
-    mergeLevelsTune yes;            // default: (1 2)
-    numDroptols     8;              // number of ICTC drop tolerances to tune
-    ```
+Tuning the ICTC preconditioner drop tolerance is controlled by the following parameters:
+| Keyword | Default | Description |
+|---------|---------|-------------|
+| `numDroptols` | `0` | number of drop tolerances to tune over |
+| `minLogDroptol` | `-4` | smallest drop tolerance (10<sup>-4</sup>) |
+| `maxLogDroptol` | `-0.5` | largest drop tolerance (10<sup>-0.5</sup>) |
 
-    The available `\*Tune` keywords and their defaults are:
-    | Keyword | Default values |
-    |---------|---------------|
-    | `smootherTune` | `GaussSeidel DIC DICGaussSeidel symGaussSeidel` |
-    | `agglomeratorTune` | `faceAreaPair algebraicPair` |
-    | `directSolveCoarsestTune` | `no yes` |
-    | `nCellsInCoarsestLevelTune` | `10 100 1000` |
-    | `mergeLevelsTune` | `1 2` |
-    | `nPreSweepsTune` | `0 2` |
-    | `nPostSweepsTune` | `1 2` |
-    | `nFinestSweepsTune` | `2` |
-    | `nVcyclesTune` | `1 2` |
+The solver will consider `numDroptols` different drop tolerances, evenly-spaced in log-space between `minLogDroptol` and `maxLogDroptol`.
+For example, with `numDroptols 8; minLogDroptol -4; maxLogDroptol -0.5`, the drop tolerances will be approximately: `(0.0001 0.000316 0.001 0.00316 0.01 0.0316 0.1 0.316)`.
+The `ICTC` preconditioner may also be used on its own as a preconditioner for PCG by replacing (e.g.) `preconditioner DIC;` with `preconditioner ICTC;` in the relevant `fvSolution` file.
 
-    Additional optional keywords:
-    | Keyword | Default | Description |
-    |---------|---------|-------------|
-    | `numDroptols` | `0` | number of `ICTC` drop tolerances to tune over |
-    | `DICTune` | `yes` | include `DIC` as a candidate preconditioner |
-    | `cacheAgglomeration` | `yes` (auto `no` if tuning agglomerator/nCellsInCoarsestLevel/mergeLevels) | GAMG agglomeration caching |
-    | `banditAlgorithm` | `TsallisINF` | bandit algorithm (`TsallisINF` or `ThompsonSampling`) |
-    | `lossEstimator` | `RV` | loss estimator for the bandit algorithm (`RV` or `IW`) |
-    | `backstop` | `-1` | backstop iteration limit (`-1` = auto) |
-    | `static` | `-1` | index of static preconditioner schedule (`-1` = off) |
-    | `deterministic` | `no` | deterministic mode for reproducible runs |
-    | `maxIter` | `1000` | maximum PCG iterations |
+### Tuning multigrid parameters
 
-    Set `randomSeed` in `controlDict` (not `fvSolution`) to control the random seed.
+To tune over GAMG configurations, add one or more `<param>Tune` keywords, where `<param>` is a valid GAMG parameter.
+Each `<param>Tune` keyword accepts either `yes` (use built-in defaults), `no` (default), or an explicit list of values:
+```
+solver          PCGBandit;
+preconditioner  separate;
+smootherTune    yes;            // default: (GaussSeidel DIC DICGaussSeidel symGaussSeidel)
+nCellsInCoarsestLevelTune yes;  // default: (10 100 1000)
+mergeLevelsTune yes;            // default: (1 2)
+numDroptols     8;              // number of ICTC drop tolerances to tune
+```
 
-### ICTC smoothers
+The available `<param>Tune` keywords and their defaults are:
+| Keyword | Default values |
+|---------|---------------|
+| `smootherTune` | `GaussSeidel DIC DICGaussSeidel symGaussSeidel` |
+| `agglomeratorTune` | `faceAreaPair algebraicPair` |
+| `directSolveCoarsestTune` | `no yes` |
+| `nCellsInCoarsestLevelTune` | `10 100 1000` |
+| `mergeLevelsTune` | `1 2` |
+| `nPreSweepsTune` | `0 2` |
+| `nPostSweepsTune` | `1 2` |
+| `nFinestSweepsTune` | `2` |
+| `nVcyclesTune` | `1 2` |
 
-When tuning GAMG smoothers, you may specify `ICTC` or `ICTCGaussSeidel` as options in `smootherTune` or `coarsestSmootherTune`; this approach is best-used with `FGAMG` loaded.
+Additional optional keywords:
+| Keyword | Default | Description |
+|---------|---------|-------------|
+| `residualContext` | `no` | whether to tune the `Final` solve in a correction loop separately |
+| `DICTune` | `yes` | include `DIC` as a candidate preconditioner |
+| `cacheAgglomeration` | `yes` (auto `no` if tuning agglomerator/nCellsInCoarsestLevel/mergeLevels) | GAMG agglomeration caching |
+| `banditAlgorithm` | `TsallisINF` | bandit algorithm (`TsallisINF` or `ThompsonSampling`) |
+| `lossEstimator` | `RV` | loss estimator for the bandit algorithm (`RV` or `IW`) |
+| `backstop` | `-1` | backstop iteration limit (`-1` = auto) |
+| `static` | `-1` | index of static preconditioner schedule (`-1` = off) |
+| `deterministic` | `no` | deterministic mode for reproducible runs |
+| `maxIter` | `1000` | maximum PCG iterations |
+
+When tuning GAMG smoothers, you may also specify `ICTC` or `ICTCGaussSeidel` as options in `smootherTune` or `coarsestSmootherTune`; this approach is best-used with `FGAMG` loaded.
 These will automatically expand to a family of options with different drop tolerances.
 Drop tolerances are specified using logarithmic suffixes and controlled by:
 
 | Keyword | Default | Description |
 |---------|---------|-------------|
+| `numSmootherDroptols` | (auto to the number of available drop tolerance (`8`)) | number of drop tolerances to tune over |
 | `minSmootherLogDroptol` | `m4` | smallest drop tolerance for ICTC smoothers (10<sup>-4</sup>) |
 | `maxSmootherLogDroptol` | `m0p5` | largest drop tolerance for ICTC smoothers (10<sup>-0.5</sup>) |
 
@@ -101,36 +112,12 @@ The available suffix values and their corresponding drop tolerances are:
 | `m1` | 10<sup>-1</sup> = 0.1 |
 | `m0p5` | 10<sup>-0.5</sup> ≈ 0.316 |
 
-For example:
-```
-smootherTune (DICGaussSeidel ICTC);            // ICTC expanded from m4 to m0p5
-minSmootherLogDroptol m2;                      // ICTC expanded from m2 to m0p5
-maxSmootherLogDroptol m1;
-```
-
 You can also independently tune the smoother on the finest level and the coarse levels (requires `FGAMG`):
 ```
 smootherTune       yes;                         // tune finest-level smoother
 coarsestSmootherTune yes;                       // tune coarse-level smoother independently
 ```
 With `coarsestSmootherTune yes` and ICTC/ICTCGaussSeidel in `smootherTune`, each combination of finest-level and coarse-level drop tolerances becomes a candidate configuration.
-
-### Drop tolerance parameters for ICTC preconditioner
-
-When tuning the standalone `ICTC` preconditioner (via `numDroptols > 0`), the drop tolerances are controlled by:
-
-| Keyword | Default | Description |
-|---------|---------|-------------|
-| `minLogDroptol` | `-4` | Smallest drop tolerance (10<sup>-4</sup>) |
-| `maxLogDroptol` | `-0.5` | Largest drop tolerance (10<sup>-0.5</sup>) |
-
-The solver will create `numDroptols` evenly-spaced logarithmic samples from `minLogDroptol` to `maxLogDroptol`.
-For example, with `numDroptols 8; minLogDroptol -4; maxLogDroptol -0.5`, the drop tolerances will be approximately:
-```
-[0.0001, 0.000316, 0.001, 0.00316, 0.01, 0.0316, 0.1, 0.316]
-```
-
-The `ICTC` preconditioner may also be used on its own as a preconditioner for `PCG` by replacing (e.g.) `preconditioner DIC;` with `preconditioner ICTC;` in the relevant `fvSolution` file.
 
 ## Examples
 
