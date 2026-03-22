@@ -51,12 +51,6 @@ class PCGBandit
     label backstop_;
     label static_;
 
-    scalar maxLogDroptol_;
-    scalar minLogDroptol_;
-    label numDroptols_;
-    label dGAMG_;
-    bool cacheAgglomeration_;
-
     void queryLearner(const scalar initialResidual) const;
 
     scalar perIterationCostEstimate(const word preconditioner) const;

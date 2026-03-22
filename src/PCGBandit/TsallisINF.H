@@ -63,7 +63,7 @@ if (t == 0.0) {
 }
 
 #ifdef PCGB_DEBUG
-Info<< "\tprobabilities: " << probs << endl;
+Info<< "TsallisINF Probabilities: " << probs << endl;
 #endif
 
 // --- Naive random sampling
