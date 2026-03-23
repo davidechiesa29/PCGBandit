@@ -125,7 +125,7 @@ Foam::PCGBandit::PCGBandit
             FatalErrorInFunction << "minSmootherLogDroptol cannot be greater than maxSmootherLogDroptol" << exit(FatalError);
         }
         bool coarsestSmootherTune = Switch(solverControls.getOrDefault<word>("coarsestSmootherTune", "no"));
-        if (GAMG_or_FGAMG == "GAMG") {
+        if (coarsestSmootherTune && GAMG_or_FGAMG == "GAMG") {
             FatalErrorInFunction << "coarsestSmootherTune requires FGAMG" << exit(FatalError);
         }
         label inc = max(ICTCSuffixes.size() / solverControls.getOrDefault<label>("numSmootherDroptols", ICTCSuffixes.size()), 1);
