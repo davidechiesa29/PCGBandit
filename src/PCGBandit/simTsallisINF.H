@@ -21,7 +21,7 @@ if (t == 0.0) {
 
     // Constructs the matrix
     similarityMatrix_ = preconditionerSimilarityMatrix(preconditionerDictsMap[banditName_]);
-    similarityMatrixMap.set(banditName_, similarityMatrix_);
+    learningDict.set("similarityMatrix", similarityMatrix_);
 
     // Finds the sum of each column of the similarity matrix (to be used for RV estimator)
     for (label i = 0; i < d; i++) {
@@ -29,12 +29,12 @@ if (t == 0.0) {
             columnSums_[j] += similarityMatrix_(i, j);
         }
     }
-    columnSumsMap.set(banditName_, columnSums_);
+    learningDict.set("columnSums", columnSums_);
 
 } else {
 
-    similarityMatrix_ = similarityMatrixMap[banditName_];
-    columnSums_ = columnSumsMap[banditName_];
+    similarityMatrix_ = learningDict.get<SymmetricSquareMatrix<scalar>>("similarityMatrix");
+    columnSums_ = learningDict.get<scalarField>("columnSums");
 
     // --- Process solver feedback
     scalarField IW = learningDict.get<scalarField>("IW");
@@ -75,6 +75,7 @@ if (t == 0.0) {
         if (mag(update) < tolerance) {
             break;
         }
+
 	if (x >= min(lhat)) {
         	x = min(lhat) - 1.0;
     	}

@@ -11,7 +11,7 @@
 #include "GAMGAgglomeration.H"
 #include "Pstream.H"
 #include "Random.H"
-#include "BuildSimMatrix.C"
+#include "similarityMatrix.C"
 
 //#define PCGB_DEBUG
 //#define DUMP_ABSOL
@@ -34,8 +34,6 @@ namespace Foam
     dictionary preconditionerDict;
     dictionary subDict;
     HashTable<List<dictionary>> preconditionerDictsMap;
-    HashTable<SymmetricSquareMatrix<scalar>> similarityMatrixMap;
-    HashTable<scalarField> columnSumsMap;
     dictionary learningDicts;
 
     // --- GAMG configuration space specification and defaults
@@ -268,8 +266,10 @@ void Foam::PCGBandit::queryLearner
                 i = floor(scalar(d) * rndGen.sample01<scalar>());
             } else if (banditAlgorithm_ == "ThompsonSampling") {
                 #include "ThompsonSampling.H"
-            } else {
-                #include "TsallisINF.H"
+            } else if (banditAlgorithm_ == "simTsallisINF.H") {
+		#include "simTsallisINF.H"
+	    } else {
+		#include "TsallisINF.H"
             }
         }
 
